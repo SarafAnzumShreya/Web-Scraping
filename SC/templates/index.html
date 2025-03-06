@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Scraper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-semibold mb-6 text-center">Web Scraping Interface</h1>
+
+        <form method="POST" class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-lg">
+            <label for="url" class="block text-lg font-medium">Enter URL or Movie Name:</label>
+            <input type="text" id="url" name="url" required class="w-full p-3 border border-gray-300 rounded-lg mb-4" placeholder="Enter URL or Movie Name...">
+
+            <label for="data_type" class="block text-lg font-medium">Select Data Type:</label>
+            <select name="data_type" id="data_type" required class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+                <option value="table">Table</option>
+                <option value="image">Image</option>
+                <option value="movie">Movie</option>
+            </select>
+
+            <button type="submit" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">Scrape Data</button>
+        </form>
+
+        {% if error %}
+            <p class="text-red-500 text-center mt-4">{{ error }}</p>
+        {% endif %}
+
+        {% if data_type == 'table' %}
+            {% if tables %}
+                <h2 class="text-xl font-semibold mt-6">Found {{ tables|length }} tables on this page.</h2>
+                <form method="POST" class="mt-4">
+                    <input type="hidden" name="url" value="{{ url }}">
+                    <input type="hidden" name="data_type" value="table">
+                    <label for="table_number" class="block text-lg">Select table(s) (hold Ctrl or Cmd to select multiple):</label>
+                    <select name="table_number" id="table_number" multiple size="{{ tables|length }}" class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+                        {% for i in range(tables|length) %}
+                            <option value="{{ i }}" {% if i in selected_tables %}selected{% endif %}>Table {{ i + 1 }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Show Selected Tables</button>
+                </form>
+            {% endif %}
+        {% endif %}
+
+        {% if selected_tables %}
+            {% for table_index in selected_tables %}
+                <h3 class="text-xl font-semibold mt-6">Selected Table #{{ table_index + 1 }}:</h3>
+                <table class="min-w-full border-collapse mb-6">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            {% for column in tables[table_index][0] %}
+                                <th class="border border-gray-300 p-2">{{ column }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in tables[table_index][1:] %}
+                            <tr>
+                                {% for cell in row %}
+                                    <td class="border border-gray-300 p-2">{{ cell }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+        {% endif %}
+
+        {% if data_type == 'image' %}
+            {% if images %}
+                <h2 class="text-xl font-semibold mt-6">Found {{ images|length }} images on this page.</h2>
+                <form method="POST" class="mt-4">
+                    <input type="hidden" name="url" value="{{ url }}">
+                    <input type="hidden" name="data_type" value="image">
+                    <label for="num_images" class="block text-lg">How many images would you like to display?</label>
+                    <input type="number" name="num_images" id="num_images" value="{{ images|length }}" max="{{ images|length }}" class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+
+                    <label for="image_format" class="block text-lg font-medium">Select Image Format:</label>
+                    <select name="image_format" id="image_format" class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+                        <option value="all">All</option>
+                        <option value="png">PNG</option>
+                        <option value="jpg">JPG</option>
+                    </select>
+
+                    <button type="submit" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Display Images</button>
+                </form>
+
+                <div class="grid grid-cols-2 gap-4 mt-4" style="max-height: 400px; overflow-y: auto;">
+                    {% for img_url in images %}
+                        <div class="flex flex-col items-center">
+                            <img src="{{ img_url }}" alt="Image" class="w-full max-w-xs h-auto border rounded-lg shadow-lg">
+                            <a href="{{ img_url }}" target="_blank" class="mt-2 text-blue-500 text-sm" title="Open image in new tab">View Image</a>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endif %}
+
+        {% if data_type == 'movie' %}
+            {% if movie_data %}
+                <div class="mt-6 bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4">Movie Details</h2>
+                    <p><strong>Movie Name:</strong> {{ movie_data.name }}</p>
+                    <p><strong>Poster URL:</strong> <a href="{{ movie_data.poster_url }}" target="_blank" class="text-blue-500">{{ movie_data.poster_url }}</a></p>
+                    <p><strong>Year:</strong> {{ movie_data.year }}</p>
+                    <p><strong>Rating:</strong> {{ movie_data.rating }}</p>
+                    <p><strong>Plot:</strong> {{ movie_data.plot }}</p>
+                    <p><strong>Genre:</strong> {{ movie_data.genre }}</p>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</body>
+</html>
