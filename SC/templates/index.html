@@ -7,7 +7,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800 pt-6 pl-8 pr-8 pb-4">
-
+    <div class="site-primary-header-wrap ast-builder-grid-row-container site-header-focus-item ast-container" data-section="section-primary-header-builder">
+        <div class="ast-builder-grid-row ast-builder-grid-row-has-sides ast-builder-grid-row-no-center">
+            <div class="site-header-primary-section-left site-header-section ast-flex site-header-section-left">
+                <div class="ast-builder-layout-element ast-flex site-header-focus-item" data-section="title_tagline">
+                    <div class="site-branding ast-site-identity" itemtype="https://schema.org/Organization" itemscope="itemscope">
+                         <span class="site-logo-img"><a href="https://brainstation-23.com/" class="custom-logo-link" rel="home" aria-current="page"><img width="250" height="40" src="https://brainstation-23.com/wp-content/uploads/2024/08/bs23_logo-250x40.png" class="custom-logo" alt="Brain Station 23 PLC. | Professionals @ Your Service" decoding="async" srcset="https://brainstation-23.com/wp-content/uploads/2024/08/bs23_logo-250x40.png 1x, https://brainstation-23.com/wp-content/uploads/2024/08/bs23_logo.png 2x" sizes="(max-width: 250px) 100vw, 250px"></a>
+                        </span>
+                    </div> <!-- .site-branding -->
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="loading" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
     </div>
@@ -34,7 +45,7 @@
                 <option value="pdf">PDF Files</option>
             </select>
 
-            <button type="submit" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">Scrape Data</button>
+            <button type="submit" class="w-full py-3 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600">Scrape Data</button>
         </form>
 
         {% if error %}
