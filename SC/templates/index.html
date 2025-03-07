@@ -13,7 +13,7 @@
     </div>
 
     <div class="container mx-auto p-6">
-        <h1 class="text-3xl font-semibold mb-6 text-center">Web Scraping Interface</h1>
+        <h1 class="text-3xl font-semibold mb-6 text-center">Web Scraper</h1>
 
         <form method="POST" class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-lg">
             <label for="url" class="block text-lg font-medium" id="url-label">Enter URL or Movie Name:</label>
@@ -31,6 +31,7 @@
                 <option value="movie">Movie</option>
                 <option value="video">Video</option>
                 <option value="news">News Headlines</option>
+                <option value="pdf">PDF Files</option>
             </select>
 
             <button type="submit" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">Scrape Data</button>
@@ -228,9 +229,60 @@
             {% endif %}
         {% endif %}
 
+        {% if data_type == 'pdf' %}
+            {% if pdf_links %}
+                <h2 class="text-xl font-semibold mt-6">Found {{ pdf_links|length }} PDF files on this page:</h2>
+                <div class="mt-4">
+                    <ul class="space-y-2">
+                        {% for pdf in pdf_links %}
+                            <li class="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm hover:shadow-md">
+                                <!-- PDF Name -->
+                                <span class="text-blue-600 hover:underline cursor-pointer pdf-name" data-url="{{ pdf.url|e }}">
+                                    {{ pdf.name|e }}
+                                </span>
+                                <!-- Buttons (hidden by default) -->
+                                <div class="pdf-buttons hidden space-x-2">
+                                    <a href="{{ pdf.url|e }}" download 
+                                       class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">
+                                        Download
+                                    </a>
+                                    <button onclick="extractInfo('{{ pdf.url|e }}')" 
+                                            class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                        Extract Info
+                                    </button>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% else %}
+                <p class="text-red-500 mt-6">No PDF files found on this page.</p>
+            {% endif %}
+        {% endif %}
+
+    </div>
+
+    <!-- Modal for displaying extracted PDF info -->
+    <div id="pdfInfoModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <h3 class="text-xl font-semibold mb-4">PDF Information</h3>
+            <div id="pdfInfoContent" class="flex-1 overflow-y-auto">
+                <div class="mb-4">
+                    <p class="mb-2"><strong>Title:</strong> <span id="pdfTitle" class="text-gray-700">N/A</span></p>
+                    <p class="mb-2"><strong>Author:</strong> <span id="pdfAuthor" class="text-gray-700">N/A</span></p>
+                    <p class="mb-2"><strong>Page Count:</strong> <span id="pdfPageCount" class="text-gray-700">N/A</span></p>
+                </div>
+                <div>
+                    <p class="mb-2"><strong>Extracted Text:</strong></p>
+                    <div id="pdfText" class="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-[50vh] overflow-y-auto"></div>
+                </div>
+            </div>
+            <button onclick="closeModal()" class="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Close</button>
+        </div>
     </div>
 
     <script>
+        // Existing JavaScript
         document.querySelectorAll('form').forEach(form => {
             form.addEventListener('submit', () => {
                 document.getElementById('loading').classList.remove('hidden');
@@ -244,6 +296,60 @@
         dataType.addEventListener('change', () => {
             urlLabel.textContent = dataType.value === 'movie' ? 'Enter Movie Name:' : 'Enter URL:';
         });
+
+        // JavaScript for PDF section
+        document.querySelectorAll('.pdf-name').forEach(pdf => {
+            pdf.addEventListener('click', (e) => {
+                // Hide all buttons first
+                document.querySelectorAll('.pdf-buttons').forEach(buttons => {
+                    buttons.classList.add('hidden');
+                });
+                // Show buttons for the clicked PDF
+                const buttons = e.target.parentElement.querySelector('.pdf-buttons');
+                if (buttons) {
+                    buttons.classList.remove('hidden');
+                }
+            });
+        });
+
+        function extractInfo(pdfUrl) {
+            // Show loading spinner while extracting
+            document.getElementById('loading').classList.remove('hidden');
+            
+            fetch('/extract_pdf_info', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    'pdf_url': pdfUrl
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading spinner
+                document.getElementById('loading').classList.add('hidden');
+                
+                if (data.success) {
+                    document.getElementById('pdfTitle').textContent = data.title;
+                    document.getElementById('pdfAuthor').textContent = data.author;
+                    document.getElementById('pdfPageCount').textContent = data.page_count;
+                    document.getElementById('pdfText').textContent = data.text || 'No text extracted.';
+                    document.getElementById('pdfInfoModal').classList.remove('hidden');
+                } else {
+                    alert('Error extracting info: ' + data.error);
+                }
+            })
+            .catch(error => {
+                // Hide loading spinner on error
+                document.getElementById('loading').classList.add('hidden');
+                alert('Error: ' + error);
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('pdfInfoModal').classList.add('hidden');
+        }
     </script>
 </body>
 </html>
