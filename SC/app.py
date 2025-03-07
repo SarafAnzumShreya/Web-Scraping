@@ -13,12 +13,15 @@ from selenium.webdriver.chrome.options import Options
 
 app = Flask(__name__)
 
+
+
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         url = request.form.get('url')
         data_type = request.form.get('data_type')
-
+    
         if url and data_type == 'table':
             tables = scrape_tables(url)
             if tables:
@@ -55,6 +58,26 @@ def index():
                 return render_template('index.html', error=movie_data["error"], data_type='movie')
             else:
                 return render_template('index.html', movie_data=movie_data, data_type='movie')
+            
+            
+        if url and data_type == 'video':
+            video_format = request.form.get('video_format', 'all')
+            num_videos = request.form.get('num_videos')
+            video_data = scrape_videos(url, video_format)  # Pass video_format to function
+            if video_data:
+                # Apply num_videos filter if provided
+                if num_videos:
+                    try:
+                        num_videos = int(num_videos)
+                        video_data = video_data[:num_videos]
+                    except ValueError:
+                        pass  # Use all videos if invalid number
+                return render_template('index.html', video_data=video_data, url=url, 
+                                     data_type='video', video_format=video_format,
+                                     num_videos=num_videos or len(video_data))
+            else:
+                return render_template('index.html', error="No videos found on this page.", url=url)
+
 
     return render_template('index.html', tables=None, images=None, movie_data=None, error=None)
 
@@ -179,6 +202,32 @@ def scrape_movie_details(movie_name):
 
     finally:
         driver.quit()
+        
+    
+      
+def scrape_videos(url, video_format):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    videos = soup.find_all('video')
+
+    video_urls = []
+    for video in videos:
+        video_sources = video.find_all('source')
+        for source in video_sources:
+            video_url = source.get('src')
+            if video_url:
+                # Filter by video format
+                if video_format != 'all' and not video_url.endswith(video_format):
+                    continue
+                if video_url.startswith('http'):
+                    video_urls.append(video_url)
+                else:
+                    base_url = url.rsplit('/', 1)[0]
+                    full_url = os.path.join(base_url, video_url)
+                    video_urls.append(full_url)
+
+    return video_urls
+
 
 if __name__ == '__main__':
     app.run(debug=True)

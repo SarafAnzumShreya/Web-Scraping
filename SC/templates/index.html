@@ -6,7 +6,8 @@
     <title>Web Scraper</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 font-sans text-gray-800">
+<body class="bg-gray-100 font-sans text-gray-800 pt-6 pl-8 pr-8 pb-4">
+
     <div id="loading" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
     </div>
@@ -28,6 +29,7 @@
                 <option value="table">Table</option>
                 <option value="image">Image</option>
                 <option value="movie">Movie</option>
+                <option value="video">Video</option>
             </select>
 
             <button type="submit" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">Scrape Data</button>
@@ -146,6 +148,57 @@
             {% endif %}
         {% endif %}
     </div>
+
+    {% if data_type == 'video' %}
+        {% if video_data %}
+            <h2 class="text-xl font-semibold mt-6">Found {{ video_data|length }} videos on this page.</h2>
+            <form method="POST" class="mt-4">
+                <input type="hidden" name="url" value="{{ url }}">
+                <input type="hidden" name="data_type" value="video">
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="num_videos" class="block text-lg">Number of videos to display:</label>
+                        <input type="number" name="num_videos" id="num_videos" 
+                            value="{{ num_videos|default(video_data|length) }}" 
+                            min="1" max="{{ video_data|length }}" 
+                            class="w-full p-3 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                        <label for="video_format" class="block text-lg font-medium">Video Format:</label>
+                        <select name="video_format" id="video_format" 
+                                class="w-full p-3 border border-gray-300 rounded-lg">
+                            <option value="all" {% if video_format == 'all' %}selected{% endif %}>All</option>
+                            <option value="mp4" {% if video_format == 'mp4' %}selected{% endif %}>MP4</option>
+                            <option value="webm" {% if video_format == 'webm' %}selected{% endif %}>WEBM</option>
+                            <option value="ogg" {% if video_format == 'ogg' %}selected{% endif %}>OGG</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Update Display</button>
+            </form>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4" style="max-height: 400px; overflow-y: auto;">
+                {% for video_url in video_data %}
+                    <div class="flex flex-col items-center">
+                        <video width="320" height="240" controls class="w-full max-w-xs h-auto border rounded-lg shadow-lg object-cover">
+                            <source src="{{ video_url }}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <a href="{{ video_url }}" target="_blank" 
+                            class="mt-2 text-blue-500 text-sm hover:underline" 
+                            title="Open video in new tab">View Video</a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-red-500 mt-6">No videos found for the selected format.</p>
+        {% endif %}
+    {% endif %}
+
+
+
 
     <script>
         document.querySelectorAll('form').forEach(form => {
