@@ -11,6 +11,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import pdfplumber
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -262,7 +267,7 @@ def scrape_news_headlines(url):
             if len(text) < 15:
                 return False
             non_headline_phrases = [
-                'home', 'about', 'contact', 'login', 'register', "today's gallery"
+                'home', 'about', 'contact', 'login', 'register', "today's gallery", "The Daily Star - Bangladesh News, Political News, Bangladesh Economy & Videos, Breaking News"
             ]
             if any(phrase.lower() in text.lower() for phrase in non_headline_phrases):
                 return False
@@ -314,50 +319,64 @@ def scrape_pdf_links(url):
                 unique_pdf_links.append(link)
         
         if unique_pdf_links:
-            print("Found PDFs with BeautifulSoup")
+            logger.info(f"Found {len(unique_pdf_links)} PDFs with BeautifulSoup")
             return unique_pdf_links
     
     except requests.exceptions.RequestException as e:
-        print(f"BS4 request failed: {e}")
+        logger.error(f"BS4 request failed: {e}")
         return None
 
     # If no PDFs found with BS4, fall back to Selenium
-    print("No PDFs found with BS4, falling back to Selenium")
+    logger.info("No PDFs found with BS4, falling back to Selenium")
     
     options = Options()
-    options.headless = True  # Ensure headless mode
+     
+    options.add_argument("--headless") # Use the proper headless mode
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
 
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-    
+    driver = None
     try:
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        driver.set_page_load_timeout(30)  # Increase page load timeout
+        logger.info(f"Navigating to URL: {url}")
         driver.get(url)
-        # Wait for the "Documents" button and click it (if present)
-        try:
-            documents_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Documents')]"))
-            )
-            documents_button.click()
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "a.pdf-link"))
-            )  # Wait for PDF links to load
-        except Exception as e:
-            print(f"Warning: Could not click 'Documents' button or wait for PDFs: {e}")
 
+        # Wait for the page to load and check for any button that might reveal PDFs (e.g., "Documents", "Resources", etc.)
+        try:
+            # Look for buttons that might reveal PDFs (e.g., "Documents", "Resources", "Show More")
+            potential_buttons = driver.find_elements(By.XPATH, "//button[contains(text(), 'Documents') or contains(text(), 'Resources') or contains(text(), 'Show More')]")
+            for button in potential_buttons:
+                try:
+                    logger.info(f"Clicking button with text: {button.text}")
+                    button.click()
+                    WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.TAG_NAME, "a"))
+                    )  # Wait for any <a> tags to appear
+                    break  # Stop after clicking the first relevant button
+                except Exception as e:
+                    logger.warning(f"Could not click button '{button.text}': {e}")
+        except Exception as e:
+            logger.warning(f"No relevant buttons found to click: {e}")
+
+        # Wait for any <a> tags to ensure the page is fully loaded
+        try:
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.TAG_NAME, "a"))
+            )
+            logger.info("Page loaded successfully with Selenium")
+        except Exception as e:
+            logger.error(f"Failed to load page with Selenium: {e}")
+            return None
+
+        # Parse the page source with BeautifulSoup
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         
         pdf_links = []
         
-        # Check <a> tags with class 'a.pdf-link' (specific to Microchip)
-        for link in soup.find_all('a', class_='a.pdf-link', href=True):
-            href = link['href']
-            if href.lower().endswith('.pdf') and href.startswith(('http://', 'https://')):
-                pdf_name = href.split('/')[-1].split('?')[0]  # Extract the PDF name, remove query params
-                pdf_links.append({'url': href, 'name': pdf_name})
-        
-        # Check other <a> tags as fallback
+        # Check all <a> tags for PDF links
         for link in soup.find_all('a', href=True):
             href = link['href']
             if href.lower().endswith('.pdf') and href.startswith(('http://', 'https://')):
@@ -379,13 +398,20 @@ def scrape_pdf_links(url):
                 seen_urls.add(link['url'])
                 unique_pdf_links.append(link)
         
+        if unique_pdf_links:
+            logger.info(f"Found {len(unique_pdf_links)} PDFs with Selenium")
+        else:
+            logger.info("No PDFs found with Selenium")
+        
         return unique_pdf_links if unique_pdf_links else None
     
     except Exception as e:
-        print(f"Error scraping PDFs with Selenium: {e}")
+        logger.error(f"Error scraping PDFs with Selenium: {e}")
         return None
     finally:
-        driver.quit()
+        if driver:
+            driver.quit()
+            logger.info("Selenium driver closed")
 
 if __name__ == '__main__':
     app.run(debug=True)
