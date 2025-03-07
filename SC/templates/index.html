@@ -7,15 +7,24 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800">
+    <div id="loading" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+    </div>
+
     <div class="container mx-auto p-6">
         <h1 class="text-3xl font-semibold mb-6 text-center">Web Scraping Interface</h1>
 
         <form method="POST" class="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-lg">
             <label for="url" class="block text-lg font-medium">Enter URL or Movie Name:</label>
-            <input type="text" id="url" name="url" required class="w-full p-3 border border-gray-300 rounded-lg mb-4" placeholder="Enter URL or Movie Name...">
+            <input type="text" id="url" name="url" required 
+                   class="w-full p-3 border border-gray-300 rounded-lg mb-4" 
+                   placeholder="Enter URL or Movie Name..." 
+                   aria-label="Enter URL or Movie Name">
 
             <label for="data_type" class="block text-lg font-medium">Select Data Type:</label>
-            <select name="data_type" id="data_type" required class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+            <select name="data_type" id="data_type" required 
+                    class="w-full p-3 border border-gray-300 rounded-lg mb-4" 
+                    aria-label="Select Data Type">
                 <option value="table">Table</option>
                 <option value="image">Image</option>
                 <option value="movie">Movie</option>
@@ -35,7 +44,9 @@
                     <input type="hidden" name="url" value="{{ url }}">
                     <input type="hidden" name="data_type" value="table">
                     <label for="table_number" class="block text-lg">Select table(s) (hold Ctrl or Cmd to select multiple):</label>
-                    <select name="table_number" id="table_number" multiple size="{{ tables|length }}" class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+                    <select name="table_number" id="table_number" multiple 
+                            size="{{ tables|length }}" 
+                            class="w-full p-3 border border-gray-300 rounded-lg mb-4">
                         {% for i in range(tables|length) %}
                             <option value="{{ i }}" {% if i in selected_tables %}selected{% endif %}>Table {{ i + 1 }}</option>
                         {% endfor %}
@@ -43,30 +54,32 @@
                     <button type="submit" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Show Selected Tables</button>
                 </form>
             {% endif %}
-        {% endif %}
 
-        {% if selected_tables %}
-            {% for table_index in selected_tables %}
-                <h3 class="text-xl font-semibold mt-6">Selected Table #{{ table_index + 1 }}:</h3>
-                <table class="min-w-full border-collapse mb-6">
-                    <thead>
-                        <tr class="bg-gray-200">
-                            {% for column in tables[table_index][0] %}
-                                <th class="border border-gray-300 p-2">{{ column }}</th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in tables[table_index][1:] %}
-                            <tr>
-                                {% for cell in row %}
-                                    <td class="border border-gray-300 p-2">{{ cell }}</td>
+            {% if selected_tables %}
+                {% for table_index in selected_tables %}
+                    <h3 class="text-xl font-semibold mt-6">Selected Table #{{ table_index + 1 }}:</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full border-collapse mb-6">
+                            <thead>
+                                <tr class="bg-gray-200">
+                                    {% for column in tables[table_index][0] %}
+                                        <th class="border border-gray-300 p-2 text-left">{{ column }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in tables[table_index][1:] %}
+                                    <tr class="{{ loop.cycle('bg-white', 'bg-gray-50') }} hover:bg-gray-100">
+                                        {% for cell in row %}
+                                            <td class="border border-gray-300 p-2">{{ cell }}</td>
+                                        {% endfor %}
+                                    </tr>
                                 {% endfor %}
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endfor %}
+            {% endif %}
         {% endif %}
 
         {% if data_type == 'image' %}
@@ -75,24 +88,39 @@
                 <form method="POST" class="mt-4">
                     <input type="hidden" name="url" value="{{ url }}">
                     <input type="hidden" name="data_type" value="image">
-                    <label for="num_images" class="block text-lg">How many images would you like to display?</label>
-                    <input type="number" name="num_images" id="num_images" value="{{ images|length }}" max="{{ images|length }}" class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="num_images" class="block text-lg">Number of images to display:</label>
+                            <input type="number" name="num_images" id="num_images" 
+                                   value="{{ num_images|default(images|length) }}" 
+                                   min="1" max="{{ images|length }}" 
+                                   class="w-full p-3 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label for="image_format" class="block text-lg font-medium">Image Format:</label>
+                            <select name="image_format" id="image_format" 
+                                    class="w-full p-3 border border-gray-300 rounded-lg">
+                                <option value="all" {% if image_format == 'all' %}selected{% endif %}>All</option>
+                                <option value="png" {% if image_format == 'png' %}selected{% endif %}>PNG</option>
+                                <option value="jpg" {% if image_format == 'jpg' %}selected{% endif %}>JPG</option>
+                            </select>
+                        </div>
+                    </div>
 
-                    <label for="image_format" class="block text-lg font-medium">Select Image Format:</label>
-                    <select name="image_format" id="image_format" class="w-full p-3 border border-gray-300 rounded-lg mb-4">
-                        <option value="all">All</option>
-                        <option value="png">PNG</option>
-                        <option value="jpg">JPG</option>
-                    </select>
-
-                    <button type="submit" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Display Images</button>
+                    <button type="submit" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Update Display</button>
                 </form>
 
-                <div class="grid grid-cols-2 gap-4 mt-4" style="max-height: 400px; overflow-y: auto;">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4" style="max-height: 400px; overflow-y: auto;">
                     {% for img_url in images %}
                         <div class="flex flex-col items-center">
-                            <img src="{{ img_url }}" alt="Image" class="w-full max-w-xs h-auto border rounded-lg shadow-lg">
-                            <a href="{{ img_url }}" target="_blank" class="mt-2 text-blue-500 text-sm" title="Open image in new tab">View Image</a>
+                            <img src="{{ img_url }}" alt="Scraped image" 
+                                 class="w-full max-w-xs h-auto border rounded-lg shadow-lg object-cover"
+                                 loading="lazy" 
+                                 onerror="this.src='/static/fallback.jpg';">
+                            <a href="{{ img_url }}" target="_blank" 
+                               class="mt-2 text-blue-500 text-sm hover:underline" 
+                               title="Open image in new tab">View Image</a>
                         </div>
                     {% endfor %}
                 </div>
@@ -103,15 +131,28 @@
             {% if movie_data %}
                 <div class="mt-6 bg-white p-6 rounded-lg shadow-lg">
                     <h2 class="text-xl font-semibold mb-4">Movie Details</h2>
-                    <p><strong>Movie Name:</strong> {{ movie_data.name }}</p>
-                    <p><strong>Poster URL:</strong> <a href="{{ movie_data.poster_url }}" target="_blank" class="text-blue-500">{{ movie_data.poster_url }}</a></p>
-                    <p><strong>Year:</strong> {{ movie_data.year }}</p>
-                    <p><strong>Rating:</strong> {{ movie_data.rating }}</p>
-                    <p><strong>Plot:</strong> {{ movie_data.plot }}</p>
-                    <p><strong>Genre:</strong> {{ movie_data.genre }}</p>
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <img src="{{ movie_data.poster_url }}" alt="{{ movie_data.name }} poster" 
+                             class="w-48 h-auto rounded-lg object-cover">
+                        <div>
+                            <p><strong>Movie Name:</strong> {{ movie_data.name }}</p>
+                            <p><strong>Year:</strong> {{ movie_data.year }}</p>
+                            <p><strong>Rating:</strong> {{ movie_data.rating }}</p>
+                            <p><strong>Plot:</strong> {{ movie_data.plot }}</p>
+                            <p><strong>Genre:</strong> {{ movie_data.genre }}</p>
+                        </div>
+                    </div>
                 </div>
             {% endif %}
         {% endif %}
     </div>
+
+    <script>
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', () => {
+                document.getElementById('loading').classList.remove('hidden');
+            });
+        });
+    </script>
 </body>
 </html>

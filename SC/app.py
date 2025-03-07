@@ -19,31 +19,38 @@ def index():
         url = request.form.get('url')
         data_type = request.form.get('data_type')
 
-        # If user selects "table"
         if url and data_type == 'table':
             tables = scrape_tables(url)
             if tables:
-                # If user selects tables, get the selected ones
                 if 'table_number' in request.form:
                     selected_tables = request.form.getlist('table_number')
                     selected_tables = [int(i) for i in selected_tables]
-                    return render_template('index.html', tables=tables, url=url, selected_tables=selected_tables, data_type='table')
+                    return render_template('index.html', tables=tables, url=url, 
+                                        selected_tables=selected_tables, data_type='table')
                 return render_template('index.html', tables=tables, url=url, data_type='table')
             else:
                 return render_template('index.html', error="No tables found on this page.", url=url)
 
-        # If user selects "image"
         elif url and data_type == 'image':
-            image_format = request.form.get('image_format', 'all')  # Get the selected format
+            image_format = request.form.get('image_format', 'all')
+            num_images = request.form.get('num_images')
             images = scrape_images(url, image_format)
             if images:
-                return render_template('index.html', images=images, url=url, data_type='image', image_format=image_format)
+                # Apply num_images filter if provided
+                if num_images:
+                    try:
+                        num_images = int(num_images)
+                        images = images[:num_images]
+                    except ValueError:
+                        pass  # Use all images if invalid number
+                return render_template('index.html', images=images, url=url, 
+                                     data_type='image', image_format=image_format,
+                                     num_images=num_images or len(images))
             else:
                 return render_template('index.html', error="No images found on this page.", url=url)
 
-        # If user selects "movie"
         elif url and data_type == 'movie':
-            movie_data = scrape_movie_details(url)  # Using the input as the movie name
+            movie_data = scrape_movie_details(url)
             if "error" in movie_data:
                 return render_template('index.html', error=movie_data["error"], data_type='movie')
             else:
