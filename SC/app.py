@@ -78,6 +78,25 @@ def index():
             else:
                 return render_template('index.html', error="No videos found on this page.", url=url, data_type='video')
 
+        elif url and data_type == 'ebay':
+            product_name = request.form.get('url')  # Use 'url' field for product name
+            num_products = request.form.get('num_products')
+            if product_name:
+                product_details = scrape_ebay_product(product_name)
+                if product_details:
+                    if num_products:
+                        try:
+                            num_products = int(num_products)
+                            product_details = product_details[:num_products]
+                        except ValueError:
+                            pass
+                    return render_template('index.html', product_details=product_details, url=product_name, 
+                                         data_type='ebay', num_products=num_products or len(product_details))
+                else:
+                    return render_template('index.html', error="No products found on eBay.", data_type='ebay')
+            else:
+                return render_template('index.html', error="Please enter a product name.", data_type='ebay')
+
         elif url and data_type == 'news':
             num_headlines = request.form.get('num_headlines')
             headlines = scrape_news_headlines(url)
@@ -100,7 +119,7 @@ def index():
             else:
                 return render_template('index.html', error="No PDF files found on this page.", url=url, data_type='pdf')
 
-    return render_template('index.html', tables=None, images=None, movie_data=None, video_data=None, headlines=None, pdf_links=None, error=None)
+    return render_template('index.html', tables=None, images=None, movie_data=None, video_data=None, headlines=None, pdf_links=None, product_details=None, error=None)
 
 @app.route('/extract_pdf_info', methods=['POST'])
 def extract_pdf_info():
@@ -282,6 +301,73 @@ def scrape_news_headlines(url):
         return headline_texts if headline_texts else None
     except requests.exceptions.RequestException:
         return None
+
+def scrape_ebay_product(product_name):
+    search_url = f"https://www.ebay.com/sch/i.html?_nkw={product_name.replace(' ', '+')}&_sop=12"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Referer": "https://www.ebay.com/"
+    }
+    
+    try:
+        response = requests.get(search_url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        product_details = []
+        product_listings = soup.find_all('li', {'class': 's-item s-item__pl-on-bottom'})
+
+        if not product_listings:
+            print(f"No listings found for '{product_name}'. Check selector or eBay response.")
+            print(f"Response snippet: {response.text[:500]}")
+            return []
+
+        for product in product_listings[2:]:
+            try:
+                title = product.find('div', {'class': 's-item__title'}).text.strip()
+                link = product.find('a', {'class': 's-item__link'})['href']
+                
+                # Improved image extraction
+                image_elem = product.find('img')
+                image_url = None
+                if image_elem:
+                    # Check multiple possible attributes for the image source
+                    image_url = image_elem.get('src') or image_elem.get('data-src') or image_elem.get('srcset')
+                    if image_url and 'srcset' in image_elem.attrs:
+                        # Handle srcset by taking the first URL
+                        image_url = image_url.split(',')[0].split()[0]
+                    if image_url and not image_url.startswith('http'):
+                        image_url = f"https:{image_url}"
+                # Fallback if no image is found
+                image_url = image_url if image_url else "https://via.placeholder.com/150?text=No+Image"
+
+                price = product.find('span', {'class': 's-item__price'}).text.strip() if product.find('span', {'class': 's-item__price'}) else 'Price not available'
+                rating = product.find('div', {'class': 'x-star-rating'}).text.strip() if product.find('div', {'class': 'x-star-rating'}) else 'No rating'
+                
+                product_details.append({
+                    "title": title,
+                    "link": link,
+                    "image_url": image_url,
+                    "price": price,
+                    "rating": rating
+                })
+                print(f"Extracted image URL: {image_url}")  # Debug output
+
+            except AttributeError as e:
+                print(f"Error parsing product: {e}")
+                continue
+
+        if not product_details:
+            print(f"No valid product details extracted for '{product_name}'.")
+        
+        return product_details[:100]  # Limit to 10 results
+
+    except requests.RequestException as e:
+        print(f"Failed to fetch eBay page for '{product_name}': {e}")
+        return []
 
 def scrape_pdf_links(url):
     """Scrape a webpage for PDF links, first with BS4, then with Selenium if no PDFs are found."""

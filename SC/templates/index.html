@@ -50,6 +50,7 @@
                 <option value="image">Image</option>
                 <option value="movie">Movie</option>
                 <option value="video">Video</option>
+                <option value="ebay">e-Bay Product</option>
                 <option value="news">News Headlines</option>
                 <option value="pdf">PDF Files</option>
             </select>
@@ -277,6 +278,49 @@
                 </div>
             {% else %}
                 <p class="text-red-500 mt-6">No PDF files found on this page.</p>
+            {% endif %}
+        {% endif %}
+
+        {% if data_type == 'ebay' %}
+            {% if product_details %}
+                <h2 class="text-xl font-semibold mt-6">Found {{ product_details|length }} products on eBay.</h2>
+                <form method="POST" class="mt-4">
+                    <input type="hidden" name="url" value="{{ url }}">
+                    <input type="hidden" name="data_type" value="ebay">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="num_products" class="block text-lg">Number of products to display:</label>
+                            <input type="number" name="num_products" id="num_products" 
+                                value="{{ num_products|default(product_details|length) }}" 
+                                min="1" max="{{ product_details|length }}" 
+                                class="w-full p-3 border border-gray-300 rounded-lg">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Update Display</button>
+                </form>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4" style="max-height: 400px; overflow-y: auto;">
+                    {% for product in product_details %}
+                        <div class="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center">
+                            <img src="{{ product.image_url }}" alt="{{ product.title }}" 
+                                class="w-full h-48 object-cover rounded-lg" 
+                                loading="lazy" 
+                                onerror="this.onerror=null; this.src='https://via.placeholder.com/150?text=Image+Failed';"
+                                onload="this.style.opacity='1';"
+                                style="opacity: 0.5; transition: opacity 0.3s;">
+                            <h3 class="text-lg font-semibold mt-2 text-center">{{ product.title }}</h3>
+                            <p class="text-gray-600 mt-1">{{ product.price }}</p>
+                            <p class="text-yellow-500 mt-1">{{ product.rating }}</p>
+                            <a href="{{ product.link }}" target="_blank" 
+                            class="mt-2 text-blue-500 text-sm hover:underline" 
+                            title="View on eBay">View on eBay</a>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-red-500 mt-6">{{ error }}</p>
             {% endif %}
         {% endif %}
 
