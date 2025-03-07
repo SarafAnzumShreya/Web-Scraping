@@ -3,14 +3,6 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import re
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
 
 app = Flask(__name__)
 
@@ -50,7 +42,7 @@ def index():
                 return render_template('index.html', error="No images found on this page.", url=url, data_type='image')
 
         elif url and data_type == 'movie':
-            movie_data = scrape_movie_details(url)
+            movie_data = scrape_movie_details(url)  # URL is treated as movie name here
             if "error" in movie_data:
                 return render_template('index.html', error=movie_data["error"], data_type='movie')
             else:
@@ -133,48 +125,55 @@ def scrape_images(url, image_format):
         return None
 
 def scrape_movie_details(movie_name):
-    options = Options()
-    options.add_experimental_option('prefs', {
-        "download.default_directory": r"D:\Scapping",
-        "download.prompt_for_download": False,
-        "plugins.always_open_pdf_externally": True
-    })
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-    URL = "https://www.imdb.com/"
-    driver.get(URL)
-    driver.maximize_window()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    
     try:
-        search_box = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "suggestion-search"))
-        )
-        search_box.send_keys(movie_name)
-        search_box.send_keys(Keys.RETURN)
-        first_result = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, ".ipc-metadata-list-summary-item a.ipc-metadata-list-summary-item__t"))
-        )
-        first_result.click()
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "h1")))
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Stars')]")))
-        title_element = driver.find_element(By.TAG_NAME, "h1")
-        name = title_element.text.strip()
-        if name.lower() != movie_name.lower():
-            return {"error": "Movie not found"}
-        poster_element = driver.find_element(By.CSS_SELECTOR, "img.ipc-image")
-        poster_url = poster_element.get_attribute("src")
-        year_element = driver.find_element(By.XPATH, "//ul[contains(@class, 'ipc-inline-list--show-dividers')]//a[contains(@href, 'releaseinfo')]")
-        year = year_element.text.strip()
-        rating_container = driver.find_element(By.CSS_SELECTOR, "div[data-testid='hero-rating-bar__aggregate-rating__score']")
-        rating_elements = rating_container.find_elements(By.TAG_NAME, "span")
-        rating = rating_elements[0].text + "/10"
-        plot_element = driver.find_element(By.CSS_SELECTOR, "[data-testid='plot']")
-        plot = plot_element.text.strip()
-        genre_element = driver.find_elements(By.CSS_SELECTOR, ".ipc-chip.ipc-chip--on-baseAlt .ipc-chip__text")[0]
-        genre = genre_element.text.strip()
-        return {"name": name, "poster_url": poster_url, "year": year, "rating": rating, "plot": plot, "genre": genre}
+        # Step 1: Search IMDB for the movie
+        search_url = f"https://www.imdb.com/find?q={movie_name.replace(' ', '+')}&ref_=nv_sr_sm"
+        search_response = requests.get(search_url, headers=headers, timeout=10)
+        search_response.raise_for_status()
+        search_soup = BeautifulSoup(search_response.content, 'html.parser')
+        
+        # Find the first movie result link
+        first_result = search_soup.select_one('.ipc-metadata-list-summary-item a.ipc-metadata-list-summary-item__t')
+        if not first_result:
+            return {"error": "No movie found with that name."}
+        
+        movie_url = "https://www.imdb.com" + first_result['href']
+        
+        # Step 2: Scrape the movie page
+        movie_response = requests.get(movie_url, headers=headers, timeout=10)
+        movie_response.raise_for_status()
+        soup = BeautifulSoup(movie_response.content, 'html.parser')
+        
+        # Extract movie details
+        title = soup.select_one('h1').text.strip()
+        poster = soup.select_one('img.ipc-image')
+        poster_url = poster['src'] if poster else "N/A"
+        year_elem = soup.select_one('a[href*="/releaseinfo"]')
+        year = year_elem.text.strip() if year_elem else "N/A"
+        rating_elem = soup.select_one('div[data-testid="hero-rating-bar__aggregate-rating__score"] span')
+        rating = rating_elem.text.strip() + "/10" if rating_elem else "N/A"
+        plot_elem = soup.select_one('[data-testid="plot"]')
+        plot = plot_elem.text.strip() if plot_elem else "N/A"
+        genre_elem = soup.select_one('.ipc-chip.ipc-chip--on-baseAlt .ipc-chip__text')
+        genre = genre_elem.text.strip() if genre_elem else "N/A"
+        
+        return {
+            "name": title,
+            "poster_url": poster_url,
+            "year": year,
+            "rating": rating,
+            "plot": plot,
+            "genre": genre
+        }
+        
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Network error occurred: {e}"}
     except Exception as e:
         return {"error": f"An error occurred: {e}"}
-    finally:
-        driver.quit()
 
 def scrape_videos(url, video_format):
     try:
@@ -209,19 +208,17 @@ def scrape_news_headlines(url):
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        # Find all potential headlines
         headlines = soup.find_all(['h1', 'h2', 'h3'])
         if not headlines:
             headlines = soup.find_all('a', class_=lambda x: x and ('excerpt' in x.lower() or 'title' in x.lower() or 'headline' in x.lower()))
         if not headlines:
             headlines = soup.find_all('a')
 
-        # Function to verify if text is a headline
         def is_valid_headline(text):
             if len(text) < 15:
                 return False
             non_headline_phrases = [
-                'home', 'about', 'contact', 'login', 'register', "today's gallery" , "Today''s Gallery", "The Daily Star - Bangladesh News, Political News, Bangladesh Economy & Videos, Breaking News"
+                'home', 'about', 'contact', 'login', 'register', "today's gallery"
             ]
             if any(phrase.lower() in text.lower() for phrase in non_headline_phrases):
                 return False
@@ -229,7 +226,6 @@ def scrape_news_headlines(url):
                 return True
             return True
 
-        # Filter and extract unique headline texts
         headline_texts = []
         for headline in headlines:
             text = headline.get_text().strip()
