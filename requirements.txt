@@ -4,3 +4,4 @@ beautifulsoup4==4.11.1
 selenium==4.8.2
 webdriver-manager
 pdfplumber==0.5.28
+gunicorn
